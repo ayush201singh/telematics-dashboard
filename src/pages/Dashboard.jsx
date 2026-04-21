@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 
-// --- STATIC HISTORICAL DATA LEDGER ---
-// These are constant, fixed values. They will never jump or change.
-// The mileage is NOT provided here; the app calculates it mathematically.
+// ==========================================
+// 1. STATIC HISTORICAL DATA LEDGER
+// ==========================================
+// Fixed values to ensure the presentation looks stable and professional.
 const STATIC_HISTORY = {
   'NODE1': [
     { daysAgo: 6, distance: 132.5, fuelUsed: 7.2 },
@@ -33,7 +34,9 @@ const STATIC_HISTORY = {
   ]
 };
 
-// --- ANIMATION ENGINE ---
+// ==========================================
+// 2. SMOOTH UI ANIMATION ENGINE
+// ==========================================
 function useAnimatedNumber(endValue, duration = 500) {
   const [value, setValue] = useState(endValue || 0);
   const prevEndValue = useRef(endValue || 0);
@@ -54,8 +57,10 @@ function useAnimatedNumber(endValue, duration = 500) {
   return value;
 }
 
+// ==========================================
+// 3. MAIN OMNI FLEET DASHBOARD COMPONENT
+// ==========================================
 export default function Dashboard() {
-  // --- STATE MANAGEMENT ---
   const [vehicleData, setVehicleData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [selectedNode, setSelectedNode] = useState('NODE1');
@@ -74,12 +79,13 @@ export default function Dashboard() {
             const incomingData = data[0];
             setVehicleData({
               ...incomingData,
+              // Uses actual AWS data, but locks missing params to constant "highway" speeds
               speed: incomingData.speed || 68,
               rpm: incomingData.rpm || 2400,
               engineLoad: incomingData.engineLoad || 42
             });
           } else {
-            setVehicleData(null);
+            setVehicleData(null); // Node 3 is empty, triggers "No Uplink" UI
           }
           setLoading(false);
         })
@@ -91,19 +97,21 @@ export default function Dashboard() {
     return () => clearInterval(intervalId);
   }, [selectedNode]);
 
-  // --- 🧠 SYNCHRONIZED INTELLIGENT MATH ALGORITHM ---
+  // --- 🧠 MATHEMATICAL RANGE & MILEAGE CALCULATOR ---
   const calculateDynamicMetrics = (data, node) => {
     if (!data) return { currentMileage: 0, estimatedRange: 0 };
     
     const TANK_CAPACITY_LITERS = 50; 
     const remainingFuelLiters = (data.fuel / 100) * TANK_CAPACITY_LITERS;
     
+    // Set base efficiency depending on the vehicle class
     let baseMileage = 18.0; 
     if (node === 'NODE2') baseMileage = 12.0;
     if (node === 'NODE3') baseMileage = 15.0;
 
     let dynamicMileage = baseMileage;
 
+    // Apply active physics penalties based on live sensors
     if (data.speed > 90) dynamicMileage -= (data.speed - 90) * 0.1; 
     if (data.rpm > 2500) dynamicMileage -= (data.rpm - 2500) * 0.002; 
     if (data.engineLoad > 60) dynamicMileage -= (data.engineLoad - 60) * 0.05; 
@@ -121,23 +129,38 @@ export default function Dashboard() {
 
   const liveMetrics = calculateDynamicMetrics(vehicleData, selectedNode);
 
-  // --- AI PREDICTIVE INSIGHTS ---
+  // --- 🛡️ ADVANCED ANOMALY DETECTION ENGINE ---
   const generateInsights = (data) => {
     if (!data) return [];
     let insights = [];
-    if (data.rpm > 3000 && data.speed < 30 && data.engineLoad > 60) {
-      insights.push({ level: 'critical', text: 'Transmission strain detected. Probable clutch slip.' });
+    
+    // 1. Rash Driving & Transmission Alerts
+    if (data.speed > 120) {
+      insights.push({ level: 'critical', text: '🚨 CRITICAL: Speed limit violation detected (>120 km/h).' });
     }
-    if (parseInt(data.temperature) > 95) {
-      insights.push({ level: 'critical', text: 'Thermal warning: Engine cooling system compromised.' });
-    } else if (parseInt(data.temperature) > 85) {
-      insights.push({ level: 'warning', text: 'Elevated core temp. Optimization suggested.' });
+    if (data.rpm > 4000 && data.speed < 60) {
+      insights.push({ level: 'warning', text: '⚠️ Aggressive acceleration. Transmission strain detected.' });
     }
-    if (insights.length === 0) insights.push({ level: 'optimal', text: 'All telemetry arrays performing nominally.' });
+
+    // 2. Thermal Threshold Alerts
+    if (parseInt(data.temperature) > 100) {
+      insights.push({ level: 'critical', text: '🔥 CRITICAL: Engine Overheating. Imminent block warping risk.' });
+    } else if (parseInt(data.temperature) > 90) {
+      insights.push({ level: 'warning', text: '⚠️ Elevated core temp. Recommend reducing engine load.' });
+    }
+
+    // 3. Fuel Leak / Drain Alert (Simulated logic threshold)
+    if (parseInt(data.fuel) < 15) {
+      insights.push({ level: 'warning', text: '⛽ Low fuel reserve. Route to nearest station.' });
+    }
+
+    // 4. All Clear
+    if (insights.length === 0) insights.push({ level: 'optimal', text: '✅ All telemetry arrays performing nominally.' });
+    
     return insights;
   };
 
-  // --- CONSTANT HISTORICAL MATH ENGINE ---
+  // --- HISTORY LEDGER PROCESSOR ---
   const getConstantHistory = (node) => {
     const rawData = STATIC_HISTORY[node] || STATIC_HISTORY['NODE1'];
     let totalDist = 0;
@@ -147,11 +170,9 @@ export default function Dashboard() {
     rawData.forEach(entry => {
       const date = new Date();
       date.setDate(date.getDate() - entry.daysAgo);
-      
       totalDist += entry.distance;
       totalFuel += entry.fuelUsed;
       
-      // Mathematical calculation of mileage based on constant inputs
       const calculatedMileage = (entry.distance / entry.fuelUsed).toFixed(1);
 
       history.push({
@@ -163,18 +184,18 @@ export default function Dashboard() {
     });
 
     const avgMileage = (totalDist / totalFuel).toFixed(1);
-    // Reverse so the most recent day shows at the top of the list
     return { history: history.reverse(), totalDist: totalDist.toFixed(1), totalFuel: totalFuel.toFixed(1), avgMileage };
   };
 
   const tripData = getConstantHistory(selectedNode);
 
-  // --- ANIMATED VALUES ---
+  // --- ANIMATED UI BINDINGS ---
   const animSpeed = useAnimatedNumber(vehicleData ? parseInt(vehicleData.speed) : 0);
   const animRPM = useAnimatedNumber(vehicleData ? parseInt(vehicleData.rpm) : 0);
   const animFuel = useAnimatedNumber(vehicleData ? parseInt(vehicleData.fuel) : 0);
   const animTemp = useAnimatedNumber(vehicleData ? parseInt(vehicleData.temperature) : 0);
 
+  // --- LOADING SCREEN ---
   if (loading) return (
     <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', backgroundColor: '#09090b', color: '#0ea5e9', fontSize: '1.5rem', fontFamily: 'system-ui' }}>
       Connecting to Omni Fleet Servers...
@@ -191,11 +212,17 @@ export default function Dashboard() {
       overflowX: 'hidden'
     }}>
       
+      {/* --- INJECTED CSS --- */}
       <style>{`
         @keyframes pulse-green {
           0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
           70% { box-shadow: 0 0 0 10px rgba(16, 185, 129, 0); }
           100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+        }
+        @keyframes pulse-red {
+          0% { box-shadow: 0 0 0 0 rgba(244, 63, 94, 0.7); }
+          70% { box-shadow: 0 0 0 15px rgba(244, 63, 94, 0); }
+          100% { box-shadow: 0 0 0 0 rgba(244, 63, 94, 0); }
         }
         .glass-card {
           background: rgba(255, 255, 255, 0.03);
@@ -232,8 +259,10 @@ export default function Dashboard() {
           
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '5px' }}>
-              <div style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: '#10b981', animation: 'pulse-green 2s infinite' }}></div>
-              <span style={{ color: '#10b981', fontSize: '0.8rem', letterSpacing: '2px', textTransform: 'uppercase', fontWeight: 'bold' }}>System Online</span>
+              <div style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: vehicleData ? '#10b981' : '#f59e0b', animation: vehicleData ? 'pulse-green 2s infinite' : 'none' }}></div>
+              <span style={{ color: vehicleData ? '#10b981' : '#f59e0b', fontSize: '0.8rem', letterSpacing: '2px', textTransform: 'uppercase', fontWeight: 'bold' }}>
+                {vehicleData ? 'System Online' : 'Awaiting Uplink'}
+              </span>
             </div>
             <h1 className="gradient-text" style={{ margin: 0, fontSize: '3rem', fontWeight: '800', letterSpacing: '-1px' }}>
               Omni Fleet
@@ -263,9 +292,10 @@ export default function Dashboard() {
 
         {/* --- NO DATA FALLBACK --- */}
         {!vehicleData ? (
-          <div className="glass-card" style={{ padding: '50px', textAlign: 'center', marginTop: '50px' }}>
-            <h2 style={{ color: '#f8fafc', marginBottom: '10px' }}>No Uplink Detected</h2>
-            <p style={{ color: '#94a3b8' }}>Omni Fleet is currently awaiting telemetry data for <strong>{selectedNode}</strong> from the AWS Cloud layer.</p>
+          <div className="glass-card" style={{ padding: '60px', textAlign: 'center', marginTop: '50px' }}>
+            <div style={{ fontSize: '4rem', marginBottom: '20px' }}>📡</div>
+            <h2 style={{ color: '#f8fafc', marginBottom: '10px', fontSize: '2rem' }}>No Uplink Detected</h2>
+            <p style={{ color: '#94a3b8', fontSize: '1.1rem' }}>Omni Fleet is currently awaiting telemetry data for <strong style={{ color: '#38bdf8' }}>{selectedNode}</strong> from the AWS Cloud layer.</p>
           </div>
         ) : (
           <>
@@ -277,7 +307,7 @@ export default function Dashboard() {
                   <div className="glass-card" style={{ padding: '30px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
                     <h4 style={{ margin: 0, color: '#94a3b8', letterSpacing: '2px', fontSize: '0.8rem', textTransform: 'uppercase' }}>Velocity</h4>
                     <div style={{ display: 'flex', alignItems: 'baseline', gap: '10px', marginTop: '10px' }}>
-                      <h1 style={{ margin: 0, fontSize: '5rem', fontWeight: '700', color: '#fff', lineHeight: '1' }}>{animSpeed}</h1>
+                      <h1 style={{ margin: 0, fontSize: '5rem', fontWeight: '700', color: vehicleData.speed > 120 ? '#f43f5e' : '#fff', lineHeight: '1' }}>{animSpeed}</h1>
                       <span style={{ fontSize: '1.5rem', color: '#64748b', fontWeight: '600' }}>km/h</span>
                     </div>
                   </div>
@@ -285,7 +315,7 @@ export default function Dashboard() {
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '25px' }}>
                     <div className="glass-card" style={{ padding: '25px', flex: 1 }}>
                       <h4 style={{ margin: 0, color: '#94a3b8', letterSpacing: '2px', fontSize: '0.8rem', textTransform: 'uppercase' }}>Engine RPM</h4>
-                      <h1 style={{ margin: '10px 0 0 0', fontSize: '2.5rem', fontWeight: '700', color: '#e2e8f0' }}>{animRPM} <span style={{ fontSize: '1rem', color: '#64748b' }}>REV</span></h1>
+                      <h1 style={{ margin: '10px 0 0 0', fontSize: '2.5rem', fontWeight: '700', color: vehicleData.rpm > 4000 ? '#f59e0b' : '#e2e8f0' }}>{animRPM} <span style={{ fontSize: '1rem', color: '#64748b' }}>REV</span></h1>
                     </div>
                     <div className="glass-card" style={{ padding: '25px', flex: 1 }}>
                       <h4 style={{ margin: 0, color: '#94a3b8', letterSpacing: '2px', fontSize: '0.8rem', textTransform: 'uppercase' }}>Engine Load</h4>
@@ -296,17 +326,17 @@ export default function Dashboard() {
                   <div className="glass-card" style={{ padding: '30px', display: 'flex', flexDirection: 'column', gap: '30px' }}>
                     <div>
                       <h4 style={{ margin: 0, color: '#94a3b8', letterSpacing: '2px', fontSize: '0.8rem', textTransform: 'uppercase' }}>Core Temperature</h4>
-                      <h1 style={{ margin: '10px 0 0 0', fontSize: '3rem', fontWeight: '700', color: vehicleData.temperature > 85 ? '#f43f5e' : '#fff' }}>
+                      <h1 style={{ margin: '10px 0 0 0', fontSize: '3rem', fontWeight: '700', color: vehicleData.temperature > 95 ? '#f43f5e' : '#fff' }}>
                         {animTemp} <span style={{ fontSize: '1.2rem', color: '#64748b' }}>°C</span>
                       </h1>
                     </div>
                     <div>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '10px' }}>
                         <h4 style={{ margin: 0, color: '#94a3b8', letterSpacing: '2px', fontSize: '0.8rem', textTransform: 'uppercase' }}>Fuel Reserve</h4>
-                        <span style={{ fontSize: '1.2rem', fontWeight: 'bold', color: '#fff' }}>{animFuel}%</span>
+                        <span style={{ fontSize: '1.2rem', fontWeight: 'bold', color: vehicleData.fuel < 15 ? '#f43f5e' : '#fff' }}>{animFuel}%</span>
                       </div>
                       <div style={{ height: '8px', width: '100%', backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: '10px', overflow: 'hidden' }}>
-                        <div style={{ height: '100%', width: `${animFuel}%`, background: 'linear-gradient(90deg, #38bdf8, #8b5cf6)', borderRadius: '10px', transition: 'width 0.5s ease' }}></div>
+                        <div style={{ height: '100%', width: `${animFuel}%`, background: vehicleData.fuel < 15 ? '#f43f5e' : 'linear-gradient(90deg, #38bdf8, #8b5cf6)', borderRadius: '10px', transition: 'width 0.5s ease' }}></div>
                       </div>
                     </div>
                   </div>
@@ -334,17 +364,18 @@ export default function Dashboard() {
                     </div>
                   </div>
 
+                  {/* --- ACTIVE SAFETY & ANOMALY DETECTION PANEL --- */}
                   <div className="glass-card" style={{ padding: '30px' }}>
                     <h3 style={{ margin: '0 0 25px 0', fontSize: '1.5rem', fontWeight: '600', color: '#fff', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                      <span>Predictive Intelligence</span>
-                      <span style={{ fontSize: '0.7rem', padding: '3px 8px', backgroundColor: 'rgba(139, 92, 246, 0.2)', color: '#a78bfa', borderRadius: '20px', border: '1px solid rgba(139, 92, 246, 0.3)' }}>AI ACTIVE</span>
+                      <span>Active Safety Center</span>
+                      <span style={{ fontSize: '0.7rem', padding: '3px 8px', backgroundColor: 'rgba(139, 92, 246, 0.2)', color: '#a78bfa', borderRadius: '20px', border: '1px solid rgba(139, 92, 246, 0.3)' }}>SHIELD ON</span>
                     </h3>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
                       {generateInsights(vehicleData).map((insight, index) => {
                         const colors = {
-                          critical: { bg: 'rgba(244, 63, 94, 0.1)', border: 'rgba(244, 63, 94, 0.3)', text: '#fb7185' },
-                          warning: { bg: 'rgba(245, 158, 11, 0.1)', border: 'rgba(245, 158, 11, 0.3)', text: '#fbbf24' },
-                          optimal: { bg: 'rgba(16, 185, 129, 0.05)', border: 'rgba(16, 185, 129, 0.2)', text: '#34d399' }
+                          critical: { bg: 'rgba(244, 63, 94, 0.1)', border: 'rgba(244, 63, 94, 0.5)', text: '#fb7185', pulse: 'pulse-red 1.5s infinite' },
+                          warning: { bg: 'rgba(245, 158, 11, 0.1)', border: 'rgba(245, 158, 11, 0.3)', text: '#fbbf24', pulse: 'none' },
+                          optimal: { bg: 'rgba(16, 185, 129, 0.05)', border: 'rgba(16, 185, 129, 0.2)', text: '#34d399', pulse: 'none' }
                         };
                         const theme = colors[insight.level];
                         return (
@@ -352,7 +383,8 @@ export default function Dashboard() {
                             padding: '20px', borderRadius: '12px', 
                             backgroundColor: theme.bg, border: `1px solid ${theme.border}`,
                             color: theme.text, fontSize: '0.95rem', lineHeight: '1.5',
-                            display: 'flex', gap: '15px', alignItems: 'flex-start'
+                            display: 'flex', gap: '15px', alignItems: 'flex-start',
+                            animation: theme.pulse
                           }}>
                             <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: theme.text, marginTop: '5px', flexShrink: 0 }}></div>
                             {insight.text}
@@ -387,7 +419,7 @@ export default function Dashboard() {
 
                 <div className="glass-card" style={{ overflow: 'hidden' }}>
                   <div style={{ padding: '25px', borderBottom: '1px solid rgba(255,255,255,0.05)', backgroundColor: 'rgba(0,0,0,0.2)' }}>
-                    <h3 style={{ margin: 0, fontSize: '1.5rem', fontWeight: '600', color: '#fff' }}>Daily Log & Performance</h3>
+                    <h3 style={{ margin: 0, fontSize: '1.5rem', fontWeight: '600', color: '#fff' }}>Daily Log & Performance Ledger</h3>
                   </div>
                   
                   <div className="history-row" style={{ backgroundColor: 'rgba(255,255,255,0.02)', color: '#94a3b8', fontWeight: 'bold', fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '1px' }}>
