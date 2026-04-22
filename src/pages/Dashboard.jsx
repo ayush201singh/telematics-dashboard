@@ -3,7 +3,6 @@ import React, { useState, useEffect, useRef } from 'react';
 // ==========================================
 // 1. STATIC HISTORICAL DATA LEDGER
 // ==========================================
-// Fixed values to ensure the presentation looks stable and professional.
 const STATIC_HISTORY = {
   'NODE1': [
     { daysAgo: 6, distance: 132.5, fuelUsed: 7.2 },
@@ -77,15 +76,18 @@ export default function Dashboard() {
         .then(data => {
           if (data && data.length > 0) {
             const incomingData = data[0];
+            
+            // STRICT CLOUD MIRROR WITH KEY MAPPING
+            // Maps your specific JSON keys (velocity, load, timestamp) to the React variables
             setVehicleData({
               ...incomingData,
-              // Uses actual AWS data, but locks missing params to constant "highway" speeds
-              speed: incomingData.speed || 68,
-              rpm: incomingData.rpm || 2400,
-              engineLoad: incomingData.engineLoad || 42
+              speed: incomingData.velocity || 68,     // Maps JSON 'velocity' -> React 'speed'
+              rpm: incomingData.rpm || 2400,          
+              engineLoad: incomingData.load || 42,    // Maps JSON 'load' -> React 'engineLoad'
+              datetime: incomingData.timestamp || 'Syncing...' // Maps JSON 'timestamp'
             });
           } else {
-            setVehicleData(null); // Node 3 is empty, triggers "No Uplink" UI
+            setVehicleData(null); 
           }
           setLoading(false);
         })
@@ -93,7 +95,8 @@ export default function Dashboard() {
     };
 
     fetchAwsData();
-    const intervalId = setInterval(fetchAwsData, 2000);
+    // Polls AWS exactly every 5 seconds
+    const intervalId = setInterval(fetchAwsData, 5000);
     return () => clearInterval(intervalId);
   }, [selectedNode]);
 
@@ -104,14 +107,12 @@ export default function Dashboard() {
     const TANK_CAPACITY_LITERS = 50; 
     const remainingFuelLiters = (data.fuel / 100) * TANK_CAPACITY_LITERS;
     
-    // Set base efficiency depending on the vehicle class
     let baseMileage = 18.0; 
     if (node === 'NODE2') baseMileage = 12.0;
     if (node === 'NODE3') baseMileage = 15.0;
 
     let dynamicMileage = baseMileage;
 
-    // Apply active physics penalties based on live sensors
     if (data.speed > 90) dynamicMileage -= (data.speed - 90) * 0.1; 
     if (data.rpm > 2500) dynamicMileage -= (data.rpm - 2500) * 0.002; 
     if (data.engineLoad > 60) dynamicMileage -= (data.engineLoad - 60) * 0.05; 
@@ -134,27 +135,21 @@ export default function Dashboard() {
     if (!data) return [];
     let insights = [];
     
-    // 1. Rash Driving & Transmission Alerts
     if (data.speed > 120) {
       insights.push({ level: 'critical', text: '🚨 CRITICAL: Speed limit violation detected (>120 km/h).' });
     }
     if (data.rpm > 4000 && data.speed < 60) {
       insights.push({ level: 'warning', text: '⚠️ Aggressive acceleration. Transmission strain detected.' });
     }
-
-    // 2. Thermal Threshold Alerts
     if (parseInt(data.temperature) > 100) {
       insights.push({ level: 'critical', text: '🔥 CRITICAL: Engine Overheating. Imminent block warping risk.' });
     } else if (parseInt(data.temperature) > 90) {
       insights.push({ level: 'warning', text: '⚠️ Elevated core temp. Recommend reducing engine load.' });
     }
-
-    // 3. Fuel Leak / Drain Alert (Simulated logic threshold)
     if (parseInt(data.fuel) < 15) {
       insights.push({ level: 'warning', text: '⛽ Low fuel reserve. Route to nearest station.' });
     }
 
-    // 4. All Clear
     if (insights.length === 0) insights.push({ level: 'optimal', text: '✅ All telemetry arrays performing nominally.' });
     
     return insights;
@@ -212,7 +207,6 @@ export default function Dashboard() {
       overflowX: 'hidden'
     }}>
       
-      {/* --- INJECTED CSS --- */}
       <style>{`
         @keyframes pulse-green {
           0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
