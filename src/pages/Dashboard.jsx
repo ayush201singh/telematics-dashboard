@@ -20,7 +20,7 @@ const STATIC_HISTORY = {
     { daysAgo: 6, distance: 210.5, fuelUsed: 14.2 }, { daysAgo: 5, distance: 195.2, fuelUsed: 13.1 },
     { daysAgo: 4, distance: 225.8, fuelUsed: 15.0 }, { daysAgo: 3, distance: 180.4, fuelUsed: 12.0 },
     { daysAgo: 2, distance: 205.6, fuelUsed: 13.8 }, { daysAgo: 1, distance: 198.9, fuelUsed: 13.4 },
-    { daysAgo: 0, distance: 215.0, fuel: 14.5 }
+    { daysAgo: 0, distance: 215.0, fuelUsed: 14.5 }
   ]
 };
 
@@ -55,8 +55,20 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [selectedNode, setSelectedNode] = useState('NODE1');
   const [activeTab, setActiveTab] = useState('live');
+  
+  // State for the 7-second auto-dismissing notifications
+  const [toasts, setToasts] = useState([]);
 
-  // --- AWS LIVE DATA ENGINE ---
+  // Log to track chronic issues
+  const incidentLog = useRef({ hardBrakes: 0, potholes: 0 });
+
+  // --- NEW: CLEAR TOASTS ON NODE CHANGE ---
+  // This forcefully wipes the screen clean if you switch vehicles
+  useEffect(() => {
+    setToasts([]);
+  }, [selectedNode]);
+
+  // --- AWS LIVE DATA ENGINE & PRESENTATION SIMULATOR ---
   useEffect(() => {
     setLoading(true);
     const awsApiUrl = `https://jxn3qumbrd.execute-api.ap-south-1.amazonaws.com/data?device_id=${selectedNode}`;
@@ -66,42 +78,43 @@ export default function Dashboard() {
         .then(res => res.ok ? res.json() : Promise.reject('Network error'))
         .then(data => {
           if (data && data.length > 0) {
+            // PURE DATA INJECTION: Exactly what is in AWS shows on screen.
             const incomingData = data[0];
             setVehicleData({
-              ...incomingData,
-              speed: incomingData.velocity || 68,     
-              rpm: incomingData.rpm || 2400,          
-              engineLoad: incomingData.load || 42,    
-              temperature: incomingData.temperature || 90,
-              fuel: incomingData.fuel || 82,
+              device_id: selectedNode,
+              speed: incomingData.velocity || 0,
+              rpm: incomingData.rpm || 0,
+              engineLoad: incomingData.load || 0,
+              temperature: incomingData.temperature || 0,
+              fuel: incomingData.fuel || 0,
               ax: incomingData.ax || 0.0,
               ay: incomingData.ay || 0.0,
               az: incomingData.az || 1.0,
-              isOnline: true
+              voltage: incomingData.voltage || 14.2,
+              isOnline: true,
+              datetime: incomingData.timestamp || 'Live Sync'
             });
           } else {
-             // SIMULATOR (Node 2 forces High RPM / Low Speed for the notification)
-             const isHighRPMTrigger = selectedNode === 'NODE2';
-             
+             // SIMULATOR: ONLY triggers if your AWS database is empty for this node
+             let profile = { speed: Math.floor(Math.random() * (75 - 65 + 1)) + 65, rpm: 2400, engineLoad: 42, temperature: 90, fuel: 82, voltage: 14.2 };
+
+             if (selectedNode === 'NODE2') profile = { speed: 45, rpm: 4200, engineLoad: 45, temperature: 105, fuel: 65, voltage: 14.1 };
+             else if (selectedNode === 'NODE3') profile = { speed: 135, rpm: 3200, engineLoad: 92, temperature: 94, fuel: 30, voltage: 11.5 };
+
              setVehicleData({
-              device_id: selectedNode,
-              speed: isHighRPMTrigger ? 45 : Math.floor(Math.random() * (75 - 65 + 1)) + 65,
-              rpm: isHighRPMTrigger ? 4200 : 2400,
-              engineLoad: 42,
-              temperature: 90,
-              fuel: 82,
-              ax: (Math.random() * 0.2 - 0.1).toFixed(2), 
-              ay: (Math.random() * 0.3 - 0.15).toFixed(2), 
-              az: (Math.random() * 0.1 + 0.95).toFixed(2), 
-              isOnline: true
+              device_id: selectedNode, speed: profile.speed, rpm: profile.rpm, engineLoad: profile.engineLoad,
+              temperature: profile.temperature, fuel: profile.fuel, voltage: profile.voltage,
+              ax: (Math.random() * 0.2 - 0.1).toFixed(2), ay: (Math.random() * 0.3 - 0.15).toFixed(2), 
+              az: (Math.random() * 0.1 + 0.95).toFixed(2), isOnline: true, datetime: 'Simulated Sync'
             });
           }
           setLoading(false);
         })
         .catch(err => { 
+          // OFFLINE FALLBACK
           setVehicleData({
             device_id: selectedNode, speed: 68, rpm: 2400, engineLoad: 42, temperature: 90, fuel: 82,
-            ax: 0, ay: 0, az: 1, isOnline: false
+            ax: 0, ay: 0, az: 1, isOnline: false, datetime: 'Offline'
           });
           setLoading(false); 
         });
@@ -112,7 +125,37 @@ export default function Dashboard() {
     return () => clearInterval(intervalId);
   }, [selectedNode]);
 
-  // --- 🧠 MATHEMATICAL RANGE & MILEAGE CALCULATOR ---
+  // --- FLOATING TOAST NOTIFICATION MANAGER (7-SECOND LIFECYCLE) ---
+  useEffect(() => {
+    if (!vehicleData || !vehicleData.isOnline) return;
+
+    const triggerToast = (msg, level) => {
+      setToasts(prev => {
+        if (prev.some(t => t.text === msg)) return prev;
+        const newToast = { id: Date.now() + Math.random(), text: msg, level };
+        return [...prev, newToast];
+      });
+    };
+
+    if (vehicleData.speed > 120) triggerToast('🚨 HIGH SPEED: Over 120 km/h detected!', 'critical');
+    if (vehicleData.temperature > 100) triggerToast('🔥 HIGH TEMP: Engine overheating!', 'critical');
+    if (vehicleData.rpm >= 3500 && vehicleData.speed < 60) triggerToast('🚨 HIGH RPM: Transmission Strain Detected', 'warning');
+    if (vehicleData.engineLoad > 85) triggerToast('⚠️ HIGH LOAD: Excessive engine stress', 'warning');
+    if (vehicleData.voltage < 12.0 && vehicleData.rpm > 0) triggerToast('⚡ LOW BATTERY: Alternator failing', 'critical');
+
+  }, [vehicleData]);
+
+  // The 7-Second Auto-Dismiss Timer
+  useEffect(() => {
+    if (toasts.length > 0) {
+      const timer = setTimeout(() => {
+        setToasts(prev => prev.slice(1));
+      }, 7000);
+      return () => clearTimeout(timer);
+    }
+  }, [toasts]);
+
+  // --- 🧠 MATHEMATICAL RANGE CALCULATOR ---
   const calculateDynamicMetrics = (data, node) => {
     if (!data) return { currentMileage: 0, estimatedRange: 0 };
     const TANK_CAPACITY_LITERS = 50; 
@@ -122,35 +165,28 @@ export default function Dashboard() {
     if (data.speed > 90) dynamicMileage -= (data.speed - 90) * 0.1; 
     if (data.rpm > 2500) dynamicMileage -= (data.rpm - 2500) * 0.002; 
     if (data.engineLoad > 60) dynamicMileage -= (data.engineLoad - 60) * 0.05; 
-    
     dynamicMileage = Math.max(5.0, dynamicMileage);
     if (data.speed === 0 && data.rpm > 0) dynamicMileage = 0; 
-    
-    return {
-      currentMileage: dynamicMileage.toFixed(1),
-      estimatedRange: Math.round(remainingFuelLiters * dynamicMileage)
-    };
+    return { currentMileage: dynamicMileage.toFixed(1), estimatedRange: Math.round(remainingFuelLiters * dynamicMileage) };
   };
 
   const liveMetrics = calculateDynamicMetrics(vehicleData, selectedNode);
 
-  // --- 🛡️ STATEFUL PREDICTIVE ANALYTICS ENGINE ---
+  // --- 🛡️ STATIC ACTIVE SHIELD LOG (BOTTOM CARD) ---
   const generateInsights = (data) => {
     if (!data) return [];
     let insights = [];
 
-    // NOTIFICATION TRIGGER: High RPM & Low Speed
-    if (data.rpm >= 3500 && data.speed < 60) {
-      insights.push({ level: 'notification', text: '🚨 High RPM & Low Speed: Transmission Strain Detected' });
-    }
-
     if (data.speed > 120) insights.push({ level: 'critical', text: '🚨 CRITICAL: Speed limit violation detected.' });
     if (parseInt(data.temperature) > 100) insights.push({ level: 'critical', text: '🔥 CRITICAL: Engine Overheating.' });
+    if (data.rpm >= 3500 && data.speed < 60) insights.push({ level: 'warning', text: '⚠️ ALERT: High RPM & Low Speed (Transmission Strain).' });
+    if (data.engineLoad > 85) insights.push({ level: 'warning', text: '⚠️ ALERT: Excessive Engine Load detected.' });
+    if (data.voltage < 12.0 && data.rpm > 0) insights.push({ level: 'critical', text: '⚡ PREDICTIVE: Battery/Alternator failure imminent.' });
 
     if (parseFloat(data.az) > 1.8) insights.push({ level: 'warning', text: '⚠️ SUSPENSION: High vertical impact detected.' });
     if (parseFloat(data.ax) < -0.6) insights.push({ level: 'warning', text: '💥 HARSH EVENT: Severe deceleration logged.' });
 
-    if (insights.filter(i => i.level !== 'notification').length === 0) {
+    if (insights.length === 0) {
       insights.push({ level: 'optimal', text: '✅ All telemetry & kinematic arrays nominal.' });
     }
     
@@ -178,9 +214,6 @@ export default function Dashboard() {
   const animFuel = useAnimatedNumber(vehicleData ? parseInt(vehicleData.fuel) : 0);
   const animTemp = useAnimatedNumber(vehicleData ? parseInt(vehicleData.temperature) : 0);
 
-  // Separate notifications for the floating toast
-  const activeNotifications = vehicleData ? generateInsights(vehicleData).filter(i => i.level === 'notification') : [];
-
   if (loading) return (
     <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', backgroundColor: '#09090b', color: '#0ea5e9' }}>
       Connecting to Omni Fleet Servers...
@@ -207,13 +240,14 @@ export default function Dashboard() {
         .history-row { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; padding: 15px 20px; border-bottom: 1px solid rgba(255,255,255,0.05); text-align: center; }
       `}</style>
 
-      {/* FLOATING TOAST NOTIFICATION SYSTEM */}
-      {activeNotifications.length > 0 && activeTab === 'live' && (
+      {/* FLOATING TOAST NOTIFICATION SYSTEM (7 Second Time Span) */}
+      {toasts.length > 0 && activeTab === 'live' && (
         <div style={{ position: 'fixed', top: '20px', right: '20px', zIndex: 9999, display: 'flex', flexDirection: 'column', gap: '10px' }}>
-          {activeNotifications.map((alert, index) => (
-            <div key={index} style={{ 
-              background: '#f59e0b', color: '#000', padding: '15px 20px', borderRadius: '8px', 
-              fontWeight: 'bold', boxShadow: '0 10px 30px rgba(0,0,0,0.5)',
+          {toasts.map((alert) => (
+            <div key={alert.id} style={{ 
+              background: alert.level === 'critical' ? 'rgba(244, 63, 94, 0.95)' : 'rgba(245, 158, 11, 0.95)', 
+              color: '#fff', padding: '15px 25px', borderRadius: '8px', 
+              fontWeight: 'bold', boxShadow: '0 10px 30px rgba(0,0,0,0.5)', border: '1px solid rgba(255,255,255,0.2)',
               animation: 'slideIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275)'
             }}>
               {alert.text}
@@ -227,11 +261,9 @@ export default function Dashboard() {
         {/* HEADER */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '40px', flexWrap: 'wrap', gap: '20px' }}>
           <div>
-            {/* OMNI FLEET TITLE - Fixed Line Height to prevent clipping */}
             <h1 className="gradient-text" style={{ margin: 0, fontSize: '3rem', fontWeight: '800', lineHeight: '1.2', paddingBottom: '5px' }}>
               Omni Fleet
             </h1>
-            {/* ONLINE STATUS - Simplified as requested */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '5px' }}>
               <div style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: vehicleData.isOnline ? '#10b981' : '#f59e0b', animation: vehicleData.isOnline ? 'pulse-green 2s infinite' : 'none' }}></div>
               <span style={{ color: vehicleData.isOnline ? '#10b981' : '#f59e0b', fontSize: '1rem', fontWeight: 'bold', letterSpacing: '1px' }}>
@@ -247,16 +279,15 @@ export default function Dashboard() {
 
           <select value={selectedNode} onChange={(e) => setSelectedNode(e.target.value)} style={{ padding: '12px 25px', fontSize: '1rem', borderRadius: '30px', backgroundColor: 'rgba(255, 255, 255, 0.05)', color: '#fff', border: '1px solid rgba(255,255,255,0.1)', cursor: 'pointer' }}>
             <option value="NODE1" style={{ color: '#000' }}>Vehicle 01 (Alpha)</option>
-            <option value="NODE2" style={{ color: '#000' }}>Vehicle 02 (Beta) - Warning Test</option>
+            <option value="NODE2" style={{ color: '#000' }}>Vehicle 02 (Beta)</option>
             <option value="NODE3" style={{ color: '#000' }}>Vehicle 03 (Gamma)</option>
           </select>
         </div>
 
-        {/* TAB 1: LIVE TELEMETRY - RESTORED ORIGINAL WIDESCREEN GRID */}
+        {/* TAB 1: LIVE TELEMETRY - WIDESCREEN GRID */}
         {activeTab === 'live' && vehicleData && (
           <div style={{ animation: 'fadeIn 0.5s ease' }}>
             
-            {/* ROW 1: VELOCITY | RPM & LOAD (Separated) | CORE VITALS */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '25px', marginBottom: '25px' }}>
               
               <div className="glass-card" style={{ padding: '30px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
@@ -267,7 +298,6 @@ export default function Dashboard() {
                 </div>
               </div>
 
-              {/* SEPARATED RPM AND LOAD CARDS */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: '25px' }}>
                 <div className="glass-card" style={{ padding: '25px', flex: 1 }}>
                   <h4 style={{ margin: 0, color: '#94a3b8', letterSpacing: '2px', fontSize: '0.8rem', textTransform: 'uppercase' }}>Engine RPM</h4>
@@ -275,7 +305,7 @@ export default function Dashboard() {
                 </div>
                 <div className="glass-card" style={{ padding: '25px', flex: 1 }}>
                   <h4 style={{ margin: 0, color: '#94a3b8', letterSpacing: '2px', fontSize: '0.8rem', textTransform: 'uppercase' }}>Engine Load</h4>
-                  <h1 style={{ margin: '10px 0 0 0', fontSize: '2.5rem', fontWeight: '700', color: '#e2e8f0' }}>{vehicleData.engineLoad} <span style={{ fontSize: '1rem', color: '#64748b' }}>%</span></h1>
+                  <h1 style={{ margin: '10px 0 0 0', fontSize: '2.5rem', fontWeight: '700', color: vehicleData.engineLoad > 85 ? '#f43f5e' : '#e2e8f0' }}>{vehicleData.engineLoad} <span style={{ fontSize: '1rem', color: '#64748b' }}>%</span></h1>
                 </div>
               </div>
 
@@ -299,7 +329,6 @@ export default function Dashboard() {
 
             </div>
 
-            {/* ROW 2: DYNAMIC RANGE | KINEMATICS */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))', gap: '25px', marginBottom: '25px' }}>
               
               <div className="glass-card" style={{ padding: '30px' }}>
@@ -316,7 +345,6 @@ export default function Dashboard() {
                 </div>
               </div>
 
-              {/* RESTORED KINEMATICS (X, Y, Z axes included) */}
               <div className="glass-card" style={{ padding: '30px', display: 'flex', flexDirection: 'column', gap: '15px' }}>
                 <h3 style={{ margin: 0, color: '#fff', fontSize: '1.5rem', fontWeight: '600', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   Kinematics
@@ -349,14 +377,13 @@ export default function Dashboard() {
               </div>
             </div>
 
-            {/* ROW 3: ACTIVE SHIELD */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '25px' }}>
               <div className="glass-card" style={{ padding: '30px' }}>
                 <h3 style={{ margin: '0 0 25px 0', fontSize: '1.5rem', fontWeight: '600', color: '#fff', display: 'flex', alignItems: 'center', gap: '10px' }}>
                   <span>Active Shield Log</span>
                 </h3>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '15px' }}>
-                  {generateInsights(vehicleData).filter(i => i.level !== 'notification').map((insight, index) => {
+                  {generateInsights(vehicleData).map((insight, index) => {
                     const colors = {
                       critical: { bg: 'rgba(244, 63, 94, 0.1)', border: 'rgba(244, 63, 94, 0.5)', text: '#fb7185' },
                       warning: { bg: 'rgba(245, 158, 11, 0.1)', border: 'rgba(245, 158, 11, 0.3)', text: '#fbbf24' },
