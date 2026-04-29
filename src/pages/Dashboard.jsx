@@ -5,31 +5,22 @@ import React, { useState, useEffect, useRef } from 'react';
 // ==========================================
 const STATIC_HISTORY = {
   'NODE1': [
-    { daysAgo: 6, distance: 132.5, fuelUsed: 7.2 },
-    { daysAgo: 5, distance: 118.0, fuelUsed: 6.4 },
-    { daysAgo: 4, distance: 145.2, fuelUsed: 8.1 },
-    { daysAgo: 3, distance: 95.8,  fuelUsed: 5.3 },
-    { daysAgo: 2, distance: 122.4, fuelUsed: 6.8 },
-    { daysAgo: 1, distance: 110.5, fuelUsed: 6.1 },
+    { daysAgo: 6, distance: 132.5, fuelUsed: 7.2 }, { daysAgo: 5, distance: 118.0, fuelUsed: 6.4 },
+    { daysAgo: 4, distance: 145.2, fuelUsed: 8.1 }, { daysAgo: 3, distance: 95.8,  fuelUsed: 5.3 },
+    { daysAgo: 2, distance: 122.4, fuelUsed: 6.8 }, { daysAgo: 1, distance: 110.5, fuelUsed: 6.1 },
     { daysAgo: 0, distance: 128.6, fuelUsed: 7.1 }
   ],
   'NODE2': [ 
-    { daysAgo: 6, distance: 85.4, fuelUsed: 7.1 },
-    { daysAgo: 5, distance: 92.1, fuelUsed: 7.8 },
-    { daysAgo: 4, distance: 78.5, fuelUsed: 6.5 },
-    { daysAgo: 3, distance: 105.2, fuelUsed: 8.9 },
-    { daysAgo: 2, distance: 88.0, fuelUsed: 7.3 },
-    { daysAgo: 1, distance: 94.6, fuelUsed: 7.9 },
+    { daysAgo: 6, distance: 85.4, fuelUsed: 7.1 }, { daysAgo: 5, distance: 92.1, fuelUsed: 7.8 },
+    { daysAgo: 4, distance: 78.5, fuelUsed: 6.5 }, { daysAgo: 3, distance: 105.2, fuelUsed: 8.9 },
+    { daysAgo: 2, distance: 88.0, fuelUsed: 7.3 }, { daysAgo: 1, distance: 94.6, fuelUsed: 7.9 },
     { daysAgo: 0, distance: 82.3, fuelUsed: 6.9 }
   ],
   'NODE3': [ 
-    { daysAgo: 6, distance: 210.5, fuelUsed: 14.2 },
-    { daysAgo: 5, distance: 195.2, fuelUsed: 13.1 },
-    { daysAgo: 4, distance: 225.8, fuelUsed: 15.0 },
-    { daysAgo: 3, distance: 180.4, fuelUsed: 12.0 },
-    { daysAgo: 2, distance: 205.6, fuelUsed: 13.8 },
-    { daysAgo: 1, distance: 198.9, fuelUsed: 13.4 },
-    { daysAgo: 0, distance: 215.0, fuelUsed: 14.5 }
+    { daysAgo: 6, distance: 210.5, fuelUsed: 14.2 }, { daysAgo: 5, distance: 195.2, fuelUsed: 13.1 },
+    { daysAgo: 4, distance: 225.8, fuelUsed: 15.0 }, { daysAgo: 3, distance: 180.4, fuelUsed: 12.0 },
+    { daysAgo: 2, distance: 205.6, fuelUsed: 13.8 }, { daysAgo: 1, distance: 198.9, fuelUsed: 13.4 },
+    { daysAgo: 0, distance: 215.0, fuel: 14.5 }
   ]
 };
 
@@ -65,12 +56,6 @@ export default function Dashboard() {
   const [selectedNode, setSelectedNode] = useState('NODE1');
   const [activeTab, setActiveTab] = useState('live');
 
-  const incidentLog = useRef({
-    hardBrakes: 0,
-    potholes: 0,
-    hardCorners: 0
-  });
-
   // --- AWS LIVE DATA ENGINE ---
   useEffect(() => {
     setLoading(true);
@@ -92,44 +77,31 @@ export default function Dashboard() {
               ax: incomingData.ax || 0.0,
               ay: incomingData.ay || 0.0,
               az: incomingData.az || 1.0,
-              roll: incomingData.roll || 0,
-              pitch: incomingData.pitch || 0,
-              // INVISIBLE DATA: Stored in memory, but not shown on UI
-              voltage: incomingData.voltage || 14.1, 
-              datetime: incomingData.timestamp || 'Live Sync'
+              isOnline: true
             });
           } else {
-             // SIMULATOR
-             const isHarshBrake = Math.random() > 0.75;
-             const isPothole = Math.random() > 0.8;
-             const isBatteryDying = Math.random() > 0.85; // Simulates occasional electrical failure for demo
+             // SIMULATOR (Node 2 forces High RPM / Low Speed for the notification)
+             const isHighRPMTrigger = selectedNode === 'NODE2';
              
              setVehicleData({
               device_id: selectedNode,
-              speed: Math.floor(Math.random() * (75 - 65 + 1)) + 65,
-              rpm: 2400,
+              speed: isHighRPMTrigger ? 45 : Math.floor(Math.random() * (75 - 65 + 1)) + 65,
+              rpm: isHighRPMTrigger ? 4200 : 2400,
               engineLoad: 42,
               temperature: 90,
               fuel: 82,
-              ax: isHarshBrake ? -0.85 : (Math.random() * 0.2 - 0.1).toFixed(2), 
+              ax: (Math.random() * 0.2 - 0.1).toFixed(2), 
               ay: (Math.random() * 0.3 - 0.15).toFixed(2), 
-              az: isPothole ? 2.1 : (Math.random() * 0.1 + 0.95).toFixed(2), 
-              roll: Math.floor(Math.random() * 6 - 3), 
-              pitch: isHarshBrake ? -6 : Math.floor(Math.random() * 4 - 2), 
-              // INVISIBLE SIMULATOR DATA: Normal alternator is ~14.1V. A failing battery under load drops below 12V.
-              voltage: isBatteryDying ? 11.6 : 14.1,
-              datetime: 'Simulated Kinematics'
+              az: (Math.random() * 0.1 + 0.95).toFixed(2), 
+              isOnline: true
             });
           }
           setLoading(false);
         })
         .catch(err => { 
-          console.error("AWS Blocked:", err); 
           setVehicleData({
-            device_id: selectedNode,
-            speed: 68, rpm: 2400, engineLoad: 42, temperature: 90, fuel: 82,
-            ax: 0, ay: 0, az: 1, roll: 0, pitch: 0, voltage: 14.1,
-            datetime: 'Offline (CORS/Network Error)'
+            device_id: selectedNode, speed: 68, rpm: 2400, engineLoad: 42, temperature: 90, fuel: 82,
+            ax: 0, ay: 0, az: 1, isOnline: false
           });
           setLoading(false); 
         });
@@ -140,6 +112,7 @@ export default function Dashboard() {
     return () => clearInterval(intervalId);
   }, [selectedNode]);
 
+  // --- 🧠 MATHEMATICAL RANGE & MILEAGE CALCULATOR ---
   const calculateDynamicMetrics = (data, node) => {
     if (!data) return { currentMileage: 0, estimatedRange: 0 };
     const TANK_CAPACITY_LITERS = 50; 
@@ -149,6 +122,7 @@ export default function Dashboard() {
     if (data.speed > 90) dynamicMileage -= (data.speed - 90) * 0.1; 
     if (data.rpm > 2500) dynamicMileage -= (data.rpm - 2500) * 0.002; 
     if (data.engineLoad > 60) dynamicMileage -= (data.engineLoad - 60) * 0.05; 
+    
     dynamicMileage = Math.max(5.0, dynamicMileage);
     if (data.speed === 0 && data.rpm > 0) dynamicMileage = 0; 
     
@@ -164,67 +138,37 @@ export default function Dashboard() {
   const generateInsights = (data) => {
     if (!data) return [];
     let insights = [];
-    
-    if (parseFloat(data.ax) < -0.6) incidentLog.current.hardBrakes += 1;
-    if (parseFloat(data.az) > 1.8) incidentLog.current.potholes += 1;
-    if (Math.abs(parseFloat(data.ay)) > 0.5) incidentLog.current.hardCorners += 1;
 
-    // Standard Alerts
-    if (data.speed > 120) insights.push({ level: 'critical', text: '🚨 Speed limit violation detected.' });
-    if (data.rpm > 4000 && data.speed < 60) insights.push({ level: 'warning', text: '⚠️ Aggressive acceleration. Transmission strain.' });
-    if (parseInt(data.temperature) > 100) insights.push({ level: 'critical', text: '🔥 Engine Overheating. Imminent failure risk.' });
-    
-    // THE INVISIBLE GUARDIAN: Electrical Prediction (Using hidden voltage data)
-    if (data.voltage < 12.0 && data.rpm > 0) {
-      insights.push({ level: 'critical', text: '⚡ PREDICTIVE: Alternator underperforming or battery failing to hold charge. High risk of vehicle stalling on next shutdown. Schedule immediate swap.' });
+    // NOTIFICATION TRIGGER: High RPM & Low Speed
+    if (data.rpm >= 3500 && data.speed < 60) {
+      insights.push({ level: 'notification', text: '🚨 High RPM & Low Speed: Transmission Strain Detected' });
     }
 
-    // Predictive Suspension
-    if (incidentLog.current.potholes >= 3) {
-      insights.push({ level: 'critical', text: '🔧 PREDICTIVE: Chronic vertical shock detected. Suspension struts likely compromised. Immediate inspection recommended.' });
-    } else if (parseFloat(data.az) > 1.8) {
-      insights.push({ level: 'warning', text: '⚠️ SUSPENSION: Vertical impact detected.' });
-    }
+    if (data.speed > 120) insights.push({ level: 'critical', text: '🚨 CRITICAL: Speed limit violation detected.' });
+    if (parseInt(data.temperature) > 100) insights.push({ level: 'critical', text: '🔥 CRITICAL: Engine Overheating.' });
 
-    // Predictive Brake Wear
-    if (incidentLog.current.hardBrakes >= 3) {
-      insights.push({ level: 'warning', text: '⚠️ DRIVER PROFILE: Repeated harsh braking. Brake pad degradation accelerating. Retraining suggested.' });
-    } else if (parseFloat(data.ax) < -0.6) {
-      insights.push({ level: 'warning', text: '💥 HARSH EVENT: Severe deceleration logged.' });
-    }
+    if (parseFloat(data.az) > 1.8) insights.push({ level: 'warning', text: '⚠️ SUSPENSION: High vertical impact detected.' });
+    if (parseFloat(data.ax) < -0.6) insights.push({ level: 'warning', text: '💥 HARSH EVENT: Severe deceleration logged.' });
 
-    if (Math.abs(parseFloat(data.roll)) > 20) {
-      insights.push({ level: 'critical', text: '🚨 ROLLOVER RISK: Vehicle tilt exceeds structural safety limits.' });
+    if (insights.filter(i => i.level !== 'notification').length === 0) {
+      insights.push({ level: 'optimal', text: '✅ All telemetry & kinematic arrays nominal.' });
     }
-
-    if (insights.length === 0) insights.push({ level: 'optimal', text: '✅ All telemetry & kinematic arrays nominal.' });
     
     return insights;
   };
 
   const getConstantHistory = (node) => {
     const rawData = STATIC_HISTORY[node] || STATIC_HISTORY['NODE1'];
-    let totalDist = 0;
-    let totalFuel = 0;
-    const history = [];
-
+    let totalDist = 0, totalFuel = 0, history = [];
     rawData.forEach(entry => {
-      const date = new Date();
-      date.setDate(date.getDate() - entry.daysAgo);
-      totalDist += entry.distance;
-      totalFuel += entry.fuelUsed;
-      const calculatedMileage = (entry.distance / entry.fuelUsed).toFixed(1);
-
+      const date = new Date(); date.setDate(date.getDate() - entry.daysAgo);
+      totalDist += entry.distance; totalFuel += entry.fuelUsed;
       history.push({
         date: date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
-        distance: entry.distance.toFixed(1),
-        fuelUsed: entry.fuelUsed.toFixed(1),
-        mileage: calculatedMileage
+        distance: entry.distance.toFixed(1), fuelUsed: entry.fuelUsed.toFixed(1), mileage: (entry.distance / entry.fuelUsed).toFixed(1)
       });
     });
-
-    const avgMileage = (totalDist / totalFuel).toFixed(1);
-    return { history: history.reverse(), totalDist: totalDist.toFixed(1), totalFuel: totalFuel.toFixed(1), avgMileage };
+    return { history: history.reverse(), totalDist: totalDist.toFixed(1), totalFuel: totalFuel.toFixed(1), avgMileage: (totalDist / totalFuel).toFixed(1) };
   };
 
   const tripData = getConstantHistory(selectedNode);
@@ -233,6 +177,9 @@ export default function Dashboard() {
   const animRPM = useAnimatedNumber(vehicleData ? parseInt(vehicleData.rpm) : 0);
   const animFuel = useAnimatedNumber(vehicleData ? parseInt(vehicleData.fuel) : 0);
   const animTemp = useAnimatedNumber(vehicleData ? parseInt(vehicleData.temperature) : 0);
+
+  // Separate notifications for the floating toast
+  const activeNotifications = vehicleData ? generateInsights(vehicleData).filter(i => i.level === 'notification') : [];
 
   if (loading) return (
     <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', backgroundColor: '#09090b', color: '#0ea5e9' }}>
@@ -244,14 +191,12 @@ export default function Dashboard() {
     <div style={{ 
       minHeight: '100vh', width: '100%', fontFamily: '"Inter", system-ui, sans-serif',
       background: 'radial-gradient(circle at top right, #1e1b4b 0%, #09090b 40%, #000000 100%)',
-      color: '#e2e8f0', padding: '30px 0', overflowX: 'hidden'
+      color: '#e2e8f0', padding: '30px 0', overflowX: 'hidden', position: 'relative'
     }}>
       
       <style>{`
         @keyframes pulse-green { 0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); } 70% { box-shadow: 0 0 0 10px rgba(16, 185, 129, 0); } 100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); } }
-        @keyframes pulse-blue { 0% { box-shadow: 0 0 0 0 rgba(56, 189, 248, 0.7); } 70% { box-shadow: 0 0 0 10px rgba(56, 189, 248, 0); } 100% { box-shadow: 0 0 0 0 rgba(56, 189, 248, 0); } }
-        @keyframes pulse-yellow { 0% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.7); } 70% { box-shadow: 0 0 0 10px rgba(245, 158, 11, 0); } 100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0); } }
-        @keyframes pulse-red { 0% { box-shadow: 0 0 0 0 rgba(244, 63, 94, 0.7); } 70% { box-shadow: 0 0 0 15px rgba(244, 63, 94, 0); } 100% { box-shadow: 0 0 0 0 rgba(244, 63, 94, 0); } }
+        @keyframes slideIn { 0% { transform: translateX(120%); opacity: 0; } 100% { transform: translateX(0); opacity: 1; } }
         .glass-card { background: rgba(255, 255, 255, 0.03); backdrop-filter: blur(16px); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 20px; box-shadow: 0 4px 30px rgba(0, 0, 0, 0.5); }
         .nav-btn { padding: 10px 25px; border-radius: 30px; font-weight: 600; cursor: pointer; transition: all 0.3s ease; border: none; font-size: 0.95rem; }
         .nav-btn.active { background: linear-gradient(135deg, #38bdf8 0%, #8b5cf6 100%); color: white; box-shadow: 0 4px 15px rgba(56, 189, 248, 0.4); }
@@ -262,25 +207,37 @@ export default function Dashboard() {
         .history-row { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; padding: 15px 20px; border-bottom: 1px solid rgba(255,255,255,0.05); text-align: center; }
       `}</style>
 
+      {/* FLOATING TOAST NOTIFICATION SYSTEM */}
+      {activeNotifications.length > 0 && activeTab === 'live' && (
+        <div style={{ position: 'fixed', top: '20px', right: '20px', zIndex: 9999, display: 'flex', flexDirection: 'column', gap: '10px' }}>
+          {activeNotifications.map((alert, index) => (
+            <div key={index} style={{ 
+              background: '#f59e0b', color: '#000', padding: '15px 20px', borderRadius: '8px', 
+              fontWeight: 'bold', boxShadow: '0 10px 30px rgba(0,0,0,0.5)',
+              animation: 'slideIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275)'
+            }}>
+              {alert.text}
+            </div>
+          ))}
+        </div>
+      )}
+
       <div style={{ width: '100%', padding: '0 3vw', boxSizing: 'border-box' }}>
         
         {/* HEADER */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '40px', flexWrap: 'wrap', gap: '20px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '40px', flexWrap: 'wrap', gap: '20px' }}>
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '5px' }}>
-              <div style={{ 
-                width: '10px', height: '10px', borderRadius: '50%', 
-                backgroundColor: vehicleData?.datetime.includes('Offline') ? '#f59e0b' : vehicleData?.datetime.includes('Simulated') ? '#38bdf8' : '#10b981', 
-                animation: vehicleData?.datetime.includes('Offline') ? 'pulse-yellow 2s infinite' : vehicleData?.datetime.includes('Simulated') ? 'pulse-blue 2s infinite' : 'pulse-green 2s infinite' 
-              }}></div>
-              <span style={{ 
-                color: vehicleData?.datetime.includes('Offline') ? '#f59e0b' : vehicleData?.datetime.includes('Simulated') ? '#38bdf8' : '#10b981', 
-                fontSize: '0.8rem', letterSpacing: '2px', textTransform: 'uppercase', fontWeight: 'bold' 
-              }}>
-                {vehicleData?.datetime}
+            {/* OMNI FLEET TITLE - Fixed Line Height to prevent clipping */}
+            <h1 className="gradient-text" style={{ margin: 0, fontSize: '3rem', fontWeight: '800', lineHeight: '1.2', paddingBottom: '5px' }}>
+              Omni Fleet
+            </h1>
+            {/* ONLINE STATUS - Simplified as requested */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '5px' }}>
+              <div style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: vehicleData.isOnline ? '#10b981' : '#f59e0b', animation: vehicleData.isOnline ? 'pulse-green 2s infinite' : 'none' }}></div>
+              <span style={{ color: vehicleData.isOnline ? '#10b981' : '#f59e0b', fontSize: '1rem', fontWeight: 'bold', letterSpacing: '1px' }}>
+                {vehicleData.isOnline ? 'ONLINE' : 'OFFLINE'}
               </span>
             </div>
-            <h1 className="gradient-text" style={{ margin: 0, fontSize: '3rem', fontWeight: '800', letterSpacing: '-1px' }}>Omni Fleet</h1>
           </div>
 
           <div style={{ display: 'flex', gap: '10px', backgroundColor: 'rgba(0,0,0,0.4)', padding: '5px', borderRadius: '35px', border: '1px solid rgba(255,255,255,0.05)' }}>
@@ -288,18 +245,20 @@ export default function Dashboard() {
             <button className={`nav-btn ${activeTab === 'analytics' ? 'active' : 'inactive'}`} onClick={() => setActiveTab('analytics')}>Trip Analytics</button>
           </div>
 
-          <select value={selectedNode} onChange={(e) => setSelectedNode(e.target.value)} style={{ padding: '12px 25px', fontSize: '1rem', borderRadius: '30px', backgroundColor: 'rgba(255, 255, 255, 0.05)', color: '#fff', border: '1px solid rgba(255,255,255,0.1)' }}>
+          <select value={selectedNode} onChange={(e) => setSelectedNode(e.target.value)} style={{ padding: '12px 25px', fontSize: '1rem', borderRadius: '30px', backgroundColor: 'rgba(255, 255, 255, 0.05)', color: '#fff', border: '1px solid rgba(255,255,255,0.1)', cursor: 'pointer' }}>
             <option value="NODE1" style={{ color: '#000' }}>Vehicle 01 (Alpha)</option>
-            <option value="NODE2" style={{ color: '#000' }}>Vehicle 02 (Beta)</option>
+            <option value="NODE2" style={{ color: '#000' }}>Vehicle 02 (Beta) - Warning Test</option>
             <option value="NODE3" style={{ color: '#000' }}>Vehicle 03 (Gamma)</option>
           </select>
         </div>
 
-        {/* TAB 1: LIVE TELEMETRY */}
+        {/* TAB 1: LIVE TELEMETRY - RESTORED ORIGINAL WIDESCREEN GRID */}
         {activeTab === 'live' && vehicleData && (
           <div style={{ animation: 'fadeIn 0.5s ease' }}>
             
+            {/* ROW 1: VELOCITY | RPM & LOAD (Separated) | CORE VITALS */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '25px', marginBottom: '25px' }}>
+              
               <div className="glass-card" style={{ padding: '30px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
                 <h4 style={{ margin: 0, color: '#94a3b8', letterSpacing: '2px', fontSize: '0.8rem', textTransform: 'uppercase' }}>Velocity</h4>
                 <div style={{ display: 'flex', alignItems: 'baseline', gap: '10px', marginTop: '10px' }}>
@@ -308,10 +267,11 @@ export default function Dashboard() {
                 </div>
               </div>
 
+              {/* SEPARATED RPM AND LOAD CARDS */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: '25px' }}>
                 <div className="glass-card" style={{ padding: '25px', flex: 1 }}>
                   <h4 style={{ margin: 0, color: '#94a3b8', letterSpacing: '2px', fontSize: '0.8rem', textTransform: 'uppercase' }}>Engine RPM</h4>
-                  <h1 style={{ margin: '10px 0 0 0', fontSize: '2.5rem', fontWeight: '700', color: vehicleData.rpm > 4000 ? '#f59e0b' : '#e2e8f0' }}>{animRPM} <span style={{ fontSize: '1rem', color: '#64748b' }}>REV</span></h1>
+                  <h1 style={{ margin: '10px 0 0 0', fontSize: '2.5rem', fontWeight: '700', color: vehicleData.rpm >= 3500 ? '#f59e0b' : '#e2e8f0' }}>{animRPM} <span style={{ fontSize: '1rem', color: '#64748b' }}>REV</span></h1>
                 </div>
                 <div className="glass-card" style={{ padding: '25px', flex: 1 }}>
                   <h4 style={{ margin: 0, color: '#94a3b8', letterSpacing: '2px', fontSize: '0.8rem', textTransform: 'uppercase' }}>Engine Load</h4>
@@ -336,9 +296,12 @@ export default function Dashboard() {
                   </div>
                 </div>
               </div>
+
             </div>
 
+            {/* ROW 2: DYNAMIC RANGE | KINEMATICS */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))', gap: '25px', marginBottom: '25px' }}>
+              
               <div className="glass-card" style={{ padding: '30px' }}>
                 <h3 style={{ margin: '0 0 25px 0', fontSize: '1.5rem', fontWeight: '600', color: '#fff' }}>Dynamic Range Analysis</h3>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
@@ -353,10 +316,11 @@ export default function Dashboard() {
                 </div>
               </div>
 
+              {/* RESTORED KINEMATICS (X, Y, Z axes included) */}
               <div className="glass-card" style={{ padding: '30px', display: 'flex', flexDirection: 'column', gap: '15px' }}>
                 <h3 style={{ margin: 0, color: '#fff', fontSize: '1.5rem', fontWeight: '600', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  Kinematics (MPU-6050)
-                  <span style={{ fontSize: '0.7rem', padding: '3px 8px', backgroundColor: 'rgba(56, 189, 248, 0.2)', color: '#38bdf8', borderRadius: '20px', border: '1px solid rgba(56, 189, 248, 0.3)' }}>6-DOF SENSOR</span>
+                  Kinematics
+                  <span style={{ fontSize: '0.7rem', padding: '3px 8px', backgroundColor: 'rgba(56, 189, 248, 0.2)', color: '#38bdf8', borderRadius: '20px', border: '1px solid rgba(56, 189, 248, 0.3)' }}>MPU-6050</span>
                 </h3>
                 
                 <div style={{ marginTop: '10px' }}>
@@ -385,25 +349,24 @@ export default function Dashboard() {
               </div>
             </div>
 
+            {/* ROW 3: ACTIVE SHIELD */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '25px' }}>
               <div className="glass-card" style={{ padding: '30px' }}>
                 <h3 style={{ margin: '0 0 25px 0', fontSize: '1.5rem', fontWeight: '600', color: '#fff', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <span>Active Safety Center & Predictive Maintenance</span>
-                  <span style={{ fontSize: '0.7rem', padding: '3px 8px', backgroundColor: 'rgba(139, 92, 246, 0.2)', color: '#a78bfa', borderRadius: '20px', border: '1px solid rgba(139, 92, 246, 0.3)' }}>AI SHIELD ON</span>
+                  <span>Active Shield Log</span>
                 </h3>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '15px' }}>
-                  {generateInsights(vehicleData).map((insight, index) => {
+                  {generateInsights(vehicleData).filter(i => i.level !== 'notification').map((insight, index) => {
                     const colors = {
-                      critical: { bg: 'rgba(244, 63, 94, 0.1)', border: 'rgba(244, 63, 94, 0.5)', text: '#fb7185', pulse: 'pulse-red 1.5s infinite' },
-                      warning: { bg: 'rgba(245, 158, 11, 0.1)', border: 'rgba(245, 158, 11, 0.3)', text: '#fbbf24', pulse: 'none' },
-                      optimal: { bg: 'rgba(16, 185, 129, 0.05)', border: 'rgba(16, 185, 129, 0.2)', text: '#34d399', pulse: 'none' }
+                      critical: { bg: 'rgba(244, 63, 94, 0.1)', border: 'rgba(244, 63, 94, 0.5)', text: '#fb7185' },
+                      warning: { bg: 'rgba(245, 158, 11, 0.1)', border: 'rgba(245, 158, 11, 0.3)', text: '#fbbf24' },
+                      optimal: { bg: 'rgba(16, 185, 129, 0.05)', border: 'rgba(16, 185, 129, 0.2)', text: '#34d399' }
                     };
                     const theme = colors[insight.level];
                     return (
                       <div key={index} style={{ 
                         padding: '20px', borderRadius: '12px', backgroundColor: theme.bg, border: `1px solid ${theme.border}`,
-                        color: theme.text, fontSize: '0.95rem', lineHeight: '1.5', display: 'flex', gap: '15px', alignItems: 'flex-start',
-                        animation: theme.pulse
+                        color: theme.text, fontSize: '0.95rem', lineHeight: '1.5', display: 'flex', gap: '15px', alignItems: 'flex-start'
                       }}>
                         <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: theme.text, marginTop: '5px', flexShrink: 0 }}></div>
                         {insight.text}
@@ -413,13 +376,13 @@ export default function Dashboard() {
                 </div>
               </div>
             </div>
+
           </div>
         )}
 
         {/* TAB 2: TRIP ANALYTICS */}
         {activeTab === 'analytics' && (
           <div style={{ animation: 'fadeIn 0.5s ease' }}>
-            
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '20px', marginBottom: '30px' }}>
               <div className="glass-card" style={{ padding: '25px', textAlign: 'center' }}>
                 <h4 style={{ margin: 0, color: '#94a3b8', textTransform: 'uppercase', fontSize: '0.85rem' }}>Monthly Average Mileage</h4>
@@ -434,32 +397,21 @@ export default function Dashboard() {
                 <h1 style={{ margin: '10px 0 0 0', fontSize: '3.5rem', color: '#e2e8f0' }}>{tripData.totalFuel} <span style={{ fontSize: '1.2rem', color: '#64748b' }}>L</span></h1>
               </div>
             </div>
-
             <div className="glass-card" style={{ overflow: 'hidden' }}>
               <div style={{ padding: '25px', borderBottom: '1px solid rgba(255,255,255,0.05)', backgroundColor: 'rgba(0,0,0,0.2)' }}>
                 <h3 style={{ margin: 0, fontSize: '1.5rem', fontWeight: '600', color: '#fff' }}>Daily Log & Performance Ledger</h3>
               </div>
-              
               <div className="history-row" style={{ backgroundColor: 'rgba(255,255,255,0.02)', color: '#94a3b8', fontWeight: 'bold', fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '1px' }}>
-                <div>Date</div>
-                <div>Distance Traveled</div>
-                <div>Fuel Used</div>
-                <div>Daily Mileage</div>
+                <div>Date</div><div>Distance Traveled</div><div>Fuel Used</div><div>Daily Mileage</div>
               </div>
-
                {tripData.history.map((log, index) => (
                 <div key={index} className="history-row" style={{ color: '#e2e8f0', backgroundColor: index % 2 === 0 ? 'transparent' : 'rgba(0,0,0,0.15)' }}>
-                  <div style={{ color: '#38bdf8', fontWeight: '600' }}>{log.date}</div>
-                  <div>{log.distance} km</div>
-                  <div>{log.fuelUsed} L</div>
-                  <div style={{ color: '#10b981', fontWeight: 'bold' }}>{log.mileage} km/L</div>
+                  <div style={{ color: '#38bdf8', fontWeight: '600' }}>{log.date}</div><div>{log.distance} km</div><div>{log.fuelUsed} L</div><div style={{ color: '#10b981', fontWeight: 'bold' }}>{log.mileage} km/L</div>
                 </div>
               ))}
             </div>
-
           </div>
         )}
-
       </div>
     </div>
   );
